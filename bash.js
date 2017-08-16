@@ -1,51 +1,12 @@
 const fs = require('fs');
 const chalk = require('chalk');
 
-const cat = (err, data, stdin) => {
-  printOrPipe(data, stdin);
+const bash = {
+  pwd: (stdin, file, done) => {
+    done(process.env.PWD);
+  },
+
 };
-
-const head = (err, data, stdin) => {
-  printOrPipe(getFilePart(data, 'head'), stdin);
-}
-
-const tail = (err, data) => {
-  printOrPipe(getFilePart(data, 'tail'), stdin);
-}
-
-const readFile = (type, stdin, file, done) => {
-  if (type === 'cat') {
-    fs.readFile(file, cat, stdin);
-  }
-  if (type === 'head') {
-    fs.readFile(file, head, stdin);
-  }
-  if (type === 'tail') {
-    fs.readFile(file, tail, stdin);
-  }
-};
-
-const printOrPipe = (result, stdin) => {
-  const print = (result) => {
-    process.stdout.write(chalk.green(result));
-    process.stdout.write('\nprompt > ');
-  };
-  if (!stdin) {
-    print(result);
-  } else {
-    if (stdin === 'cat') {
-      cat(null, result);
-    }
-    if (stdin === 'head') {
-      head(null, result);
-    }
-    if (stdin === 'tail') {
-      tail(null, result);
-    }
-  }
-};
-
-
 const pwd = (stdin, file, done) => {
   done(process.env.PWD);
 };
@@ -85,31 +46,59 @@ const getDateString = (stdin, file, done) => {
   done(today);
 };
 
-const runCmd = (cmd, arg, stdin, done) => {
-  switch (cmd) {
-    case 'pwd':
-      pwd(stdin, arg, done);
-      break;
-    case 'echo':
-      echo(stdin, arg, done);
-      break;
-    case 'ls':
-      ls(stdin, arg, done);
-      break;
-    case 'date':
-      getDateString(stdin, arg, done);
-      break;
-    case 'cat':
-      cat(stdin, arg, done);
-      break;
-    case 'head':
-      head(stdin, arg, done);
-      break;
-    case 'tail':
-      tail(stdin, arg, done);
-      break;
-    default:
-      console.log('oh no error ERROR');
+const runCmd = (cmd, arg, stdin, done, piped) => {
+  if (piped) {
+    switch (cmd) {
+      case 'cat':
+        cat(null, arg, null);
+        break;
+      case 'head':
+        head(null, arg, null);
+        break;
+      case 'tail':
+        tail(null, arg, null);
+        break;
+      default:
+        console.log('that cannot be piped');
+    }
+  } else {
+    switch (cmd) {
+      case 'pwd':
+        pwd(stdin, arg, done);
+        break;
+      case 'echo':
+        echo(stdin, arg, done);
+        break;
+      case 'ls':
+        ls(stdin, arg, done);
+        break;
+      case 'date':
+        getDateString(stdin, arg, done);
+        break;
+      case 'cat':
+        readFile('cat', stdin, arg, done);
+        break;
+      case 'head':
+        readFile('head', stdin, arg, done);
+        break;
+      case 'tail':
+        readFile('tail', stdin, arg, done);
+        break;
+      default:
+        console.log('oh no error ERROR');
+    }
+  }
+};
+
+const printOrPipe = (result, stdin) => {
+  const print = (result) => {
+    process.stdout.write(chalk.green(result));
+    process.stdout.write('\nprompt > ');
+  };
+  if (!stdin) {
+    print(result);
+  } else {
+    runCmd(stdin, result, null, printOrPipe, true);
   }
 };
 
@@ -122,18 +111,29 @@ const getFilePart = (data, type) => {
   }
 };
 
-// const printFile = (err, data) => {
-//   if (err) throw err;
-//   if (!type || type === 'cat') {
-//     done(data, stdin, runCmd);
-//   } else {
-//     done(getFilePart(data, type), stdin, runCmd);
-//   }
-// };
+const cat = (err, data, stdin) => {
+  printOrPipe(data, stdin);
+};
 
+const head = (err, data, stdin) => {
+  printOrPipe(getFilePart(data, 'head'), stdin);
+}
 
+const tail = (err, data, stdin) => {
+  printOrPipe(getFilePart(data, 'tail'), stdin);
+}
 
-
+const readFile = (type, stdin, file, done) => {
+  if (type === 'cat') {
+    fs.readFile(file, cat, stdin);
+  }
+  if (type === 'head') {
+    fs.readFile(file, head, stdin);
+  }
+  if (type === 'tail') {
+    fs.readFile(file, tail, stdin);
+  }
+};
 
 process.stdout.write(chalk.yellow('prompt > '));
 process.stdin.on('data', (data) => {
